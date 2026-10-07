@@ -17,7 +17,8 @@ try {
 
     $lines = @(); $i = 0
     foreach ($name in (Resolve-CenterNames $recs)) {
-        $n = 0; [void]$counts.TryGetValue($name.ToUpperInvariant(), [ref]$n)
+        $key = $name.ToUpperInvariant()
+        $n = if ($counts.ContainsKey($key)) { $counts[$key] } else { 0 }
         $lines += '{0}. {1} - {2}' -f (Get-ListLetter $i), $name, $n
         $i++
     }
