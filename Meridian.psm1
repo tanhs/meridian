@@ -41,7 +41,11 @@ function Invoke-MeridianHousekeeping {
 function Get-PlainSecret {
     # Reads a DPAPI-protected file created by: Read-Host -AsSecureString | ConvertFrom-SecureString
     param([Parameter(Mandatory)][string]$Path)
-    $secure = Get-Content -Path $Path -Raw | ConvertTo-SecureString
+    if (-not (Test-Path $Path)) { throw "Credential file not found: $Path" }
+    # -Raw keeps the trailing CRLF that Set-Content adds, which breaks the hex parse; strip all whitespace.
+    $text = (Get-Content -Path $Path -Raw) -replace '\s', ''
+    try { $secure = ConvertTo-SecureString -String $text }
+    catch { throw "Cannot decrypt $Path as $env:USERDOMAIN\$env:USERNAME ($($_.Exception.Message)). Recreate it while logged in as the account that runs the task (Read-Host -AsSecureString | ConvertFrom-SecureString | Set-Content)." }
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
