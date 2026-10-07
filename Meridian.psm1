@@ -55,13 +55,23 @@ function Invoke-ClockProc {
     <# Runs dbo.usp_StaffMonthlyOTClaim and returns raw DataTable. -Day is optional. #>
     param([Parameter(Mandatory)][int]$Year, [Parameter(Mandatory)][int]$Month, [Nullable[int]]$Day = $null)
     $cfg = Get-MeridianConfig
-    $cs = "Server=$($cfg.SqlServer);Database=$($cfg.SqlDatabase);Application Name=Meridian;"
+    # "tcp:" skips the named-pipes fallback, which only hides the real TCP error behind "error: 40".
+    $server = $cfg.SqlServer
+    if ($server -notmatch '^(tcp|np|lpc):') { $server = "tcp:$server" }
+    $cs = "Server=$server;Database=$($cfg.SqlDatabase);Application Name=Meridian;Connect Timeout=60;"
     if ($cfg.SqlUser) { $cs += "User ID=$($cfg.SqlUser);Password=$(Get-PlainSecret $cfg.SqlPasswordFile);" }
     else { $cs += 'Integrated Security=SSPI;' }
 
     $conn = New-Object System.Data.SqlClient.SqlConnection $cs
     try {
-        $conn.Open()
+        for ($attempt = 1; ; $attempt++) {
+            try { $conn.Open(); break }
+            catch {
+                if ($attempt -ge 3) { throw }
+                Write-MeridianLog "SQL connect attempt $attempt failed ($($_.Exception.Message)); retrying in 20s" 'sql' 'WARN'
+                Start-Sleep -Seconds 20
+            }
+        }
         $cmd = $conn.CreateCommand()
         $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
         $cmd.CommandText = 'dbo.usp_StaffMonthlyOTClaim'
