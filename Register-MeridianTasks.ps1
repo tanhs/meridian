@@ -7,6 +7,13 @@ You will be prompted for the account password.
 #>
 param([Parameter(Mandatory)][string]$RunAsUser, [string]$BaseDir = 'C:\overtime\scripts\meridian')
 
+$principal = New-Object Security.Principal.WindowsPrincipal ([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Not elevated. Right-click PowerShell > Run as administrator, then run this script again.'
+}
+if ($RunAsUser -notmatch '[\\@]') { $RunAsUser = "$env:COMPUTERNAME\$RunAsUser" }   # e.g. DVKLSRV08\administrator
+Write-Host "Tasks will run as $RunAsUser (must be the account that created smtp.cred)"
+
 function New-Job($name, $script, $schedule) {
     $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$BaseDir\$script`""
     & schtasks.exe /Create /F /TN "Meridian\$name" /TR $tr @schedule /RU $RunAsUser /RP * /RL HIGHEST
