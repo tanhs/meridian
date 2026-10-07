@@ -17,10 +17,12 @@ try {
     $start = $end.AddMonths(-1)
     Write-MeridianLog "OT extract $($start.ToString('yyyy-MM-dd HH:mm')) -> $($end.ToString('yyyy-MM-dd HH:mm'))" $job
 
-    $tables = @(Invoke-ClockProc -Year $start.Year -Month $start.Month)
+    # List.Add keeps each DataTable intact; array += would enumerate it into rows.
+    $tables = New-Object System.Collections.Generic.List[object]
+    $tables.Add((Invoke-ClockProc -Year $start.Year -Month $start.Month))
     $warn = ''
     if ($hour -gt 0) {
-        try { $tables += Invoke-ClockProc -Year $end.Year -Month $end.Month -Day 1 }
+        try { $tables.Add((Invoke-ClockProc -Year $end.Year -Month $end.Month -Day 1)) }
         catch { $warn = "WARNING: could not read day 1 of $($end.ToString('yyyy-MM')) (00:00-$('{0:00}' -f $hour):00 tail is missing): $($_.Exception.Message)"; Write-MeridianLog $warn $job 'WARN' }
     }
 
