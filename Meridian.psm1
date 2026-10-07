@@ -143,18 +143,35 @@ function Send-MeridianMail {
         Write-Host "`n$Body`n"
         return
     }
-    $msg = New-Object System.Net.Mail.MailMessage
-    $msg.From = $cfg.MailFrom
-    foreach ($to in $cfg.MailTo) { $msg.To.Add($to) }
-    $msg.Subject = $Subject
-    $msg.Body = $Body
-    $msg.IsBodyHtml = $false
-    foreach ($a in $Attachments) { $msg.Attachments.Add((New-Object System.Net.Mail.Attachment $a)) }
-    $smtp = New-Object System.Net.Mail.SmtpClient $cfg.SmtpHost, $cfg.SmtpPort
-    $smtp.EnableSsl = $true
-    $smtp.Credentials = New-Object System.Net.NetworkCredential $cfg.SmtpUser, (Get-PlainSecret $cfg.SmtpPasswordFile)
-    try { $smtp.Send($msg); Write-MeridianLog "Mail sent: $Subject" $Job }
-    finally { $msg.Dispose(); $smtp.Dispose() }
+    $password = Get-PlainSecret $cfg.SmtpPasswordFile
+    for ($attempt = 1; ; $attempt++) {
+        # Rebuilt each attempt: a failed send can leave attachment streams unusable.
+        $msg = New-Object System.Net.Mail.MailMessage
+        $smtp = New-Object System.Net.Mail.SmtpClient $cfg.SmtpHost, $cfg.SmtpPort
+        try {
+            $msg.From = $cfg.MailFrom
+            foreach ($to in $cfg.MailTo) { $msg.To.Add($to) }
+            $msg.Subject = $Subject
+            $msg.Body = $Body
+            $msg.IsBodyHtml = $false
+            foreach ($a in $Attachments) { $msg.Attachments.Add((New-Object System.Net.Mail.Attachment $a)) }
+            $smtp.EnableSsl = $true
+            $smtp.Timeout = 60000
+            $smtp.Credentials = New-Object System.Net.NetworkCredential $cfg.SmtpUser, $password
+            $smtp.Send($msg)
+            Write-MeridianLog "Mail sent: $Subject" $Job
+            return
+        }
+        catch {
+            # "Failure sending mail." hides the real reason in the inner exceptions.
+            $chain = @(); for ($e = $_.Exception; $e; $e = $e.InnerException) { $chain += $e.Message }
+            $detail = $chain -join ' <- '
+            if ($attempt -ge 3) { throw "SMTP send failed after $attempt attempts: $detail" }
+            Write-MeridianLog "SMTP attempt $attempt failed: $detail; retrying in 30s" $Job 'WARN'
+            Start-Sleep -Seconds 30
+        }
+        finally { $msg.Dispose(); $smtp.Dispose() }
+    }
 }
 
 function Send-MeridianFailure {
