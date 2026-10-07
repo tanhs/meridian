@@ -21,6 +21,23 @@ function Write-MeridianLog {
     Write-Host $line
 }
 
+function Invoke-MeridianHousekeeping {
+    <# Deletes files in LogDir and OutputDir whose LastWriteTime is older than RetentionMonths. #>
+    param([string]$Job = 'meridian', [switch]$DryRun)
+    $cfg = Get-MeridianConfig
+    $cutoff = (Get-Date).Date.AddMonths(-[int]$cfg.RetentionMonths)
+    foreach ($dir in $cfg.LogDir, $cfg.OutputDir) {
+        foreach ($f in @(Get-ChildItem -Path $dir -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $cutoff })) {
+            try {
+                if ($DryRun) { Write-MeridianLog "DRY RUN - would delete $($f.FullName)" $Job; continue }
+                Remove-Item -LiteralPath $f.FullName -Force
+                Write-MeridianLog "Housekeeping deleted $($f.FullName) ($($f.LastWriteTime.ToString('yyyy-MM-dd')))" $Job
+            }
+            catch { Write-MeridianLog "Housekeeping could not delete $($f.FullName): $_" $Job 'WARN' }
+        }
+    }
+}
+
 function Get-PlainSecret {
     # Reads a DPAPI-protected file created by: Read-Host -AsSecureString | ConvertFrom-SecureString
     param([Parameter(Mandatory)][string]$Path)

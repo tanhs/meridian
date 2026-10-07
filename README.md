@@ -21,7 +21,7 @@ All mail goes to `APAC_MY_IT_GENERAL@davita.com`; failures also email that addre
 5. Elevated PowerShell: `.\Register-MeridianTasks.ps1 -RunAsUser DOMAIN\svc_account`
 
 Auth: SQL uses Windows auth of the task account unless `SqlUser` is set in `config.psd1`.
-Logs: `logs\`, CSVs: `output\`.
+Logs: `logs\`, CSVs: `output\`. The month-end report also deletes files older than `RetentionMonths` (3) from both folders; `-DryRun` only lists what it would delete.
 
 ## Data quirks handled
 - The proc returns `TransDateDDMMYYYY` as `dd-MM-yyyy` from `tbl_DailyTransLog` but `yyyy/MM/dd` from SmartPSS; both are parsed explicitly.

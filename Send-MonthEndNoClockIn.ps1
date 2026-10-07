@@ -40,3 +40,8 @@ catch {
     Send-MeridianFailure -Job $job -Error ($_ | Out-String) -DryRun:$DryRun
     exit 1
 }
+finally {
+    # Runs whether or not the report succeeded.
+    try { Invoke-MeridianHousekeeping -Job $job -DryRun:$DryRun }
+    catch { Write-MeridianLog "Housekeeping failed: $_" $job 'WARN' }
+}

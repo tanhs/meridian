@@ -19,6 +19,9 @@
     LogDir         = 'C:\overtime\scripts\meridian\logs'
     OutputDir      = 'C:\overtime\scripts\meridian\output'
 
+    # Files in LogDir / OutputDir older than this many months are deleted by the month-end report.
+    RetentionMonths = 3
+
     # --- OT claim extract ---------------------------------------------------
     # Window = 1st of previous month @ this hour  ->  1st of this month @ this hour.
     # Set to 0 to extract plain calendar months instead.
