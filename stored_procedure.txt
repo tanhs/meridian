@@ -1,0 +1,81 @@
+USE [master]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_StaffMonthlyOTClaim]    Script Date: 10/7/2026 11:37:41 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[usp_StaffMonthlyOTClaim]
+    @Year  INT,
+    @Month INT,
+    @Day   INT = NULL       -- optional; if provided, filters to that day only
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @MonthPadded  CHAR(2)       = RIGHT('0' + CAST(@Month AS VARCHAR(2)), 2);
+    DECLARE @DBName       NVARCHAR(20)  = N'XPNTR' + CAST(@Year AS VARCHAR(4)) + @MonthPadded;
+    DECLARE @SQL          NVARCHAR(MAX);
+
+    -- Build optional day filter snippets (injected as literals; @Day is INT so safe)
+    DECLARE @DayFilter1 NVARCHAR(100) = N'';   -- for tbl_DailyTransLog (TransDate column)
+    DECLARE @DayFilter2 NVARCHAR(100) = N'';   -- for AttendanceRecordInfo (computed datetime)
+
+    IF @Day IS NOT NULL
+    BEGIN
+        SET @DayFilter1 = N' AND DAY(a.[TransDate]) = ' + CAST(@Day AS VARCHAR(2));
+        SET @DayFilter2 = N' AND DAY(DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, ''19700101''))) = '
+                        + CAST(@Day AS VARCHAR(2));
+    END
+
+    SET @SQL = N'
+    SELECT * FROM (
+        SELECT
+              [TransID]
+             ,CONVERT(varchar(10), [TransDate], 105)                                                    AS TransDateDDMMYYYY
+             ,[TransTime]
+             ,[BranchCode]
+             ,[tdesc]
+             ,[StaffName]
+             ,[StaffNo]
+        FROM (
+            SELECT *
+            FROM [' + @DBName + N'].[dbo].[tbl_DailyTransLog]
+        ) a, [xpndb].[dbo].[tbl_controller] b
+        WHERE
+            a.CtrlCode COLLATE SQL_Latin1_General_CP1_CI_AS = b.TCode
+            AND (a.[TransCode] = ''P0'' OR a.[TransCode] = ''Pi'')
+            AND a.StaffName != ''Unlisted User'''
+            + @DayFilter1 + N'
+
+        UNION ALL
+
+        SELECT
+              [PersonID]                                        COLLATE SQL_Latin1_General_CP1_CI_AS    AS TransID
+             ,CONVERT(varchar(10),
+                  DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, ''19700101'')), 111)      AS TransDateDDMMYYYY
+             ,CONVERT(varchar(8),
+                  DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, ''19700101'')), 108)      AS TransTime
+             ,LTRIM(RTRIM(REPLACE([DeviceName], ''_TMS'', ''''))) COLLATE SQL_Latin1_General_CP1_CI_AS  AS BranchCode
+             ,[DeviceName]                                        COLLATE SQL_Latin1_General_CP1_CI_AS  AS tdesc
+             ,[PersonName]                                        COLLATE SQL_Latin1_General_CP1_CI_AS  AS StaffName
+             ,[PersonID]                                          COLLATE SQL_Latin1_General_CP1_CI_AS  AS StaffNo
+        FROM [SmartPSS].[dbo].[AttendanceRecordInfo]
+        WHERE
+            MONTH(DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, ''19700101''))) = ' + CAST(@Month AS VARCHAR(2)) + N'
+            AND YEAR(DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, ''19700101'')))  = ' + CAST(@Year  AS VARCHAR(4))
+            + @DayFilter2 + N'
+
+    ) combined
+    ORDER BY BranchCode, TransDateDDMMYYYY ASC;
+    ';
+
+    IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = @DBName)
+    BEGIN
+        RAISERROR('Database %s does not exist. Please check Year and Month parameters.', 16, 1, @DBName);
+        RETURN;
+    END
+
+    EXEC sp_executesql @SQL;
+
+END
