@@ -22,6 +22,10 @@
     # Files in LogDir / OutputDir older than this many months are deleted by the month-end report.
     RetentionMonths = 3
 
+    # --- UniFi socket-leak watchdog (Watch-UniFiPorts.ps1) -------------------
+    UniFiPortThreshold = 10000          # kill UniFi when it holds more TCP sockets than this
+    UniFiCommandMatch  = 'ace.jar'      # only java/javaw processes whose command line contains this
+
     # --- OT claim extract ---------------------------------------------------
     # Window = 1st of previous month @ this hour  ->  1st of this month @ this hour.
     # Set to 0 to extract plain calendar months instead.
