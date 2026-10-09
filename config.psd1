@@ -36,7 +36,6 @@
     # --- Centers ------------------------------------------------------------
     # By default ALL centers are reported: every BranchCode / DeviceName (minus "_TMS") seen in the clock data
     # of the last DiscoverMonths months, so a center with 0 punches today still shows as "- 0".
-    DeviceLabelCount = 1               # devices shown next to each center name (most-used first); 0 = names only
     DiscoverMonths = 3                 # 0 = only centers that have punches in the report period
 
     # Centers listed here are HIDDEN from the daily and month-end reports (the OT claim CSV is never filtered).
