@@ -183,4 +183,43 @@ function Send-MeridianFailure {
     catch { Write-MeridianLog "Could not send failure mail: $_" $Job 'ERROR' }
 }
 
+function Invoke-UniFiGuard {
+    <#
+    Kills the UniFi desktop UI process (command line contains UniFiCommandMatch) if it holds more than
+    UniFiPortThreshold TCP sockets. Called by Watch-UniFiPorts.ps1 (hourly) and at the start of every report
+    script so the SQL/SMTP work never runs on an exhausted port range. Never throws: a failure here must not
+    stop a report. Does NOT restart UniFi.
+    #>
+    param([switch]$DryRun)
+    $job = 'unifiwatch'
+    try {
+        $cfg = Get-MeridianConfig
+        $limit = [int]$cfg.UniFiPortThreshold
+        $match = [string]$cfg.UniFiCommandMatch
+
+        $procs = @(Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" |
+            Where-Object { $_.CommandLine -and $_.CommandLine -like "*$match*" })
+        if (-not $procs) { Write-MeridianLog "No process matching '$match' running" $job; return }
+
+        foreach ($p in $procs) {
+            $count = @(Get-NetTCPConnection -OwningProcess $p.ProcessId -ErrorAction SilentlyContinue).Count
+            Write-MeridianLog "PID $($p.ProcessId) holds $count sockets (limit $limit)" $job
+            if ($count -le $limit) { continue }
+
+            $msg = "UniFi (PID $($p.ProcessId), started $($p.CreationDate.ToString('d/M/yyyy HH:mm'))) held $count TCP sockets, over the limit of $limit."
+            if ($DryRun) { Write-MeridianLog "DRY RUN - would kill. $msg" $job 'WARN'; continue }
+
+            Stop-Process -Id $p.ProcessId -Force
+            Write-MeridianLog "KILLED. $msg" $job 'WARN'
+            Start-Sleep -Seconds 5   # let Windows release the ports before any mail is attempted
+            try {
+                Send-MeridianMail -Job $job -Subject "[Meridian] UniFi killed on $env:COMPUTERNAME" `
+                    -Body "$msg`r`n`r`nThe process was stopped to free ephemeral ports. It has NOT been restarted.`r`nTime: $((Get-Date).ToString('d/M/yyyy HH:mm'))"
+            }
+            catch { Write-MeridianLog "Could not send kill notice: $_" $job 'ERROR' }
+        }
+    }
+    catch { Write-MeridianLog "UniFi guard failed (continuing): $_" $job 'WARN' }
+}
+
 Export-ModuleMember -Function *-*

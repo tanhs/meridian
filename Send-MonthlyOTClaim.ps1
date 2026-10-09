@@ -10,6 +10,7 @@ param([datetime]$RunDate = (Get-Date).Date, [switch]$DryRun)
 
 Import-Module (Join-Path $PSScriptRoot 'Meridian.psm1') -Force
 $job = 'otclaim'
+Invoke-UniFiGuard -DryRun:$DryRun   # free ports first; never throws
 try {
     $cfg = Get-MeridianConfig
     $hour = [int]$cfg.OTCutoffHour

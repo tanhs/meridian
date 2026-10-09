@@ -10,6 +10,8 @@ All reports reuse `dbo.usp_StaffMonthlyOTClaim` (source in `stored_procedure.txt
 | `Send-MonthlyOTClaim.ps1` | OT extract as CSV, 1st prev month 03:00 -> 1st this month 03:00 | 1st, 03:00 |
 | `Watch-UniFiPorts.ps1` | Kills the UniFi desktop UI process (`ace.jar" ui`, not the headless controller) if it holds >10,000 TCP sockets (socket leak starves SMTP/SQL), emails a notice, does not restart it | hourly at :05 |
 
+The UniFi check also runs at the start of each report script, before any SQL or email work.
+
 All mail goes to `APAC_MY_IT_GENERAL@davita.com`; failures also email that address.
 
 ## Server setup (`C:\overtime\scripts\meridian`)

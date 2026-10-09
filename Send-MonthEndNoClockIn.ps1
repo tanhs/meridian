@@ -4,6 +4,7 @@ param([int]$Year, [int]$Month, [switch]$DryRun)
 
 Import-Module (Join-Path $PSScriptRoot 'Meridian.psm1') -Force
 $job = 'monthend'
+Invoke-UniFiGuard -DryRun:$DryRun   # free ports first; never throws
 try {
     if (-not $Year -or -not $Month) { $prev = (Get-Date).Date.AddDays(1 - (Get-Date).Day).AddMonths(-1); $Year = $prev.Year; $Month = $prev.Month }
     $first = Get-Date -Year $Year -Month $Month -Day 1 -Hour 0 -Minute 0 -Second 0 -Millisecond 0

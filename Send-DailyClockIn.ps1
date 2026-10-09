@@ -4,6 +4,7 @@ param([datetime]$Date = (Get-Date).Date, [switch]$DryRun)
 
 Import-Module (Join-Path $PSScriptRoot 'Meridian.psm1') -Force
 $job = 'daily'
+Invoke-UniFiGuard -DryRun:$DryRun   # free ports first; never throws
 try {
     $Date = $Date.Date
     Write-MeridianLog "Daily clock-in for $($Date.ToString('yyyy-MM-dd'))" $job
