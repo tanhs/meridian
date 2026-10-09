@@ -5,7 +5,7 @@ All reports reuse `dbo.usp_StaffMonthlyOTClaim` (source in `stored_procedure.txt
 
 | Script | What | Schedule |
 |---|---|---|
-| `Send-DailyClockIn.ps1` | Unique `StaffNo` per center for the day (all centers, 0 included) | daily 23:59 |
+| `Send-DailyClockIn.ps1` | Centers with 0 clock-ins for the day (`-ShowAll` = every center with its unique `StaffNo` count) | daily 23:59 |
 | `Send-MonthEndNoClockIn.ps1` | Per center, days of the previous month with 0 clock-ins | 1st, 03:30 |
 | `Send-MonthlyOTClaim.ps1` | OT extract as CSV, 1st prev month 03:00 -> 1st this month 03:00 | 1st, 03:00 |
 | `Watch-UniFiPorts.ps1` | Kills the UniFi desktop UI process (`ace.jar" ui`, not the headless controller) if it holds >10,000 TCP sockets (socket leak starves SMTP/SQL), emails a notice, does not restart it | hourly at :05 |
