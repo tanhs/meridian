@@ -123,21 +123,26 @@ function Get-ClockRecord {
 function Resolve-CenterNames {
     <#
     All centers to report, as objects {Name; Desc}. Centers come from -Records plus the previous DiscoverMonths
-    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Desc = distinct
-    tdesc / DeviceName values seen for that center (omitted when identical to the name). Case-insensitive.
-    A month that cannot be read (e.g. database missing) is skipped with a warning.
+    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters.
+    Desc = the DeviceLabelCount most-used devices (tdesc / DeviceName) for that center. tdesc is the door that was
+    punched, not a fixed property of the center (staff punch at other branches too), so only the top device(s)
+    are shown. A trailing " Out"/" In" is dropped so In/Out readers count as one device. Names identical to the
+    center name are omitted. A month that cannot be read (e.g. database missing) is skipped with a warning.
     #>
     param($Records, [int]$Year, [int]$Month)
     $cfg = Get-MeridianConfig
     $names = @{}    # KEY -> display name
-    $descs = @{}    # KEY -> hashtable of distinct descriptions (key upper -> text)
+    $devs = @{}     # KEY -> @{ DEVICEKEY = @{Text; Hits} }
     $add = {
         param($r)
         $n = ([string]$r.Center).Trim(); if (-not $n) { return }
         $k = $n.ToUpperInvariant()
-        if (-not $names.ContainsKey($k)) { $names[$k] = $n; $descs[$k] = @{} }
-        $d = ([string]$r.Desc).Trim()
-        if ($d -and $d.ToUpperInvariant() -ne $k) { $descs[$k][$d.ToUpperInvariant()] = $d }
+        if (-not $names.ContainsKey($k)) { $names[$k] = $n; $devs[$k] = @{} }
+        $d = (([string]$r.Desc) -replace '\s+(Out|In)$', '' -replace '\s+', ' ').Trim()
+        if (-not $d -or $d.ToUpperInvariant() -eq $k) { return }
+        $dk = $d.ToUpperInvariant()
+        if (-not $devs[$k].ContainsKey($dk)) { $devs[$k][$dk] = @{ Text = $d; Hits = 0 } }
+        $devs[$k][$dk].Hits++
     }
 
     foreach ($r in @($Records)) { & $add $r }
@@ -152,10 +157,12 @@ function Resolve-CenterNames {
         }
     }
 
+    $top = [math]::Max(0, [int]$cfg.DeviceLabelCount)
     $exclude = @{}
     foreach ($e in @($cfg.ExcludeCenters)) { if ($e) { $exclude[([string]$e).Trim().ToUpperInvariant()] = $true } }
     $names.Keys | Where-Object { -not $exclude.ContainsKey($_) } | Sort-Object | ForEach-Object {
-        [pscustomobject]@{ Name = $names[$_]; Desc = (@($descs[$_].Values | Sort-Object) -join '; ') }
+        $best = @($devs[$_].Values | Sort-Object @{ e = { $_.Hits }; Descending = $true }, @{ e = { $_.Text } } | Select-Object -First $top | ForEach-Object { $_.Text })
+        [pscustomobject]@{ Name = $names[$_]; Desc = ($best -join '; ') }
     }
 }
 
