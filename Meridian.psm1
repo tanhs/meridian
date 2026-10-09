@@ -172,7 +172,7 @@ function Get-ListLetter {
 }
 
 function Send-MeridianMail {
-    param([Parameter(Mandatory)][string]$Subject, [Parameter(Mandatory)][string]$Body, [string[]]$Attachments = @(), [switch]$DryRun, [string]$Job = 'meridian')
+    param([Parameter(Mandatory)][string]$Subject, [Parameter(Mandatory)][string]$Body, [string]$BodyHtml, [string[]]$Attachments = @(), [switch]$DryRun, [string]$Job = 'meridian')
     $cfg = Get-MeridianConfig
     if ($DryRun) {
         Write-MeridianLog "DRY RUN - not sent. Subject: $Subject" $Job
@@ -190,8 +190,9 @@ function Send-MeridianMail {
             $msg.Subject = $Subject
             # Outlook strips single line breaks from plain-text mail ("We removed extra line breaks"), which
             # flattens the center list. Send HTML with explicit <br> instead; the text is HTML-encoded first.
-            $msg.Body = '<div style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:11pt">' +
-                ([System.Net.WebUtility]::HtmlEncode($Body) -replace "`r?`n", '<br>') + '</div>'
+            # -BodyHtml (pre-built, caller encodes) replaces the plain -Body, which is still used for dry runs.
+            $inner = if ($BodyHtml) { $BodyHtml } else { [System.Net.WebUtility]::HtmlEncode($Body) -replace "`r?`n", '<br>' }
+            $msg.Body = '<div style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:11pt">' + $inner + '</div>'
             $msg.IsBodyHtml = $true
             foreach ($a in $Attachments) { $msg.Attachments.Add((New-Object System.Net.Mail.Attachment $a)) }
             $smtp.EnableSsl = $true
