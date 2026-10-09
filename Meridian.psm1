@@ -120,12 +120,31 @@ function Get-ClockRecord {
 }
 
 function Resolve-CenterNames {
-    <# Master list from config + any extra centers seen in the data (case-insensitive). Returns display names, sorted. #>
-    param($Records)
+    <#
+    All centers to report: those in -Records, plus any seen in the previous DiscoverMonths months (ending at
+    -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Case-insensitive; returns sorted
+    display names. A month that cannot be read (e.g. database missing) is skipped with a warning.
+    #>
+    param($Records, [int]$Year, [int]$Month)
+    $cfg = Get-MeridianConfig
     $map = @{}
-    foreach ($c in @((Get-MeridianConfig).Centers)) { if ($c) { $map[$c.Trim().ToUpperInvariant()] = $c.Trim() } }
-    foreach ($r in @($Records)) { $k = $r.Center.ToUpperInvariant(); if (-not $map.ContainsKey($k)) { $map[$k] = $r.Center } }
-    $map.Values | Sort-Object
+    $add = { param($name) $n = ([string]$name).Trim(); if ($n) { $k = $n.ToUpperInvariant(); if (-not $map.ContainsKey($k)) { $map[$k] = $n } } }
+
+    foreach ($r in @($Records)) { & $add $r.Center }
+
+    $months = [int]$cfg.DiscoverMonths
+    if ($months -gt 0 -and $Year -and $Month) {
+        $base = Get-Date -Year $Year -Month $Month -Day 1
+        for ($i = 0; $i -lt $months; $i++) {
+            $d = $base.AddMonths(-$i)
+            try { foreach ($r in (Get-ClockRecord -Year $d.Year -Month $d.Month)) { & $add $r.Center } }
+            catch { Write-MeridianLog "Center discovery skipped $($d.ToString('yyyy-MM')): $($_.Exception.Message)" 'meridian' 'WARN' }
+        }
+    }
+
+    $exclude = @{}
+    foreach ($e in @($cfg.ExcludeCenters)) { if ($e) { $exclude[([string]$e).Trim().ToUpperInvariant()] = $true } }
+    $map.GetEnumerator() | Where-Object { -not $exclude.ContainsKey($_.Key) } | ForEach-Object { $_.Value } | Sort-Object
 }
 
 function Get-ListLetter {

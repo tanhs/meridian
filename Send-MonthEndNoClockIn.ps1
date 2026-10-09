@@ -20,7 +20,7 @@ try {
     $dataDays = @($recs | ForEach-Object { $_.Date } | Select-Object -Unique).Count
 
     $lines = @(); $i = 0
-    foreach ($name in (Resolve-CenterNames $recs)) {
+    foreach ($name in (Resolve-CenterNames $recs -Year $Year -Month $Month)) {
         $zero = for ($d = $first; $d -le $last; $d = $d.AddDays(1)) {
             if (-not $active.ContainsKey("$($name.ToUpperInvariant())|$($d.ToString('yyyyMMdd'))")) { '{0}/{1}' -f $d.Day, $d.Month }
         }
@@ -32,7 +32,6 @@ try {
     $body = "Datetime run: $range $((Get-Date).ToString('HH:mm'))`r`nDays with no clock-in, per center`r`n`r`n" + ($lines -join "`r`n")
     $body += "`r`n`r`n(Every calendar day is checked, including weekends and public holidays.)"
     if ($dataDays -eq 0) { $body += "`r`n`r`nWARNING: no clock records found for the month - data feed may be down." }
-    if (-not @((Get-MeridianConfig).Centers)) { $body += "`r`n`r`nNOTE: Centers list in config.psd1 is empty; centers with zero punches all month are not shown." }
 
     Send-MeridianMail -Subject ("Month-End No Clock-In Report {0:MMM yyyy}" -f $first) -Body $body -DryRun:$DryRun -Job $job
 }

@@ -1,5 +1,5 @@
 #requires -Version 5.1
-<# Prints distinct centers seen in the last N months so you can paste them into config.psd1 (Centers). #>
+<# Prints distinct centers seen in the last N months so you can pick names to hide via ExcludeCenters in config.psd1. #>
 param([int]$Months = 3)
 Import-Module (Join-Path $PSScriptRoot 'Meridian.psm1') -Force
 $all = @()

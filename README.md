@@ -18,7 +18,7 @@ All mail goes to `APAC_MY_IT_GENERAL@davita.com`; failures also email that addre
 1. `git pull origin claude/vibrant-volta-nn1z4o` (or clone the repo into that folder).
 2. SMTP password (once, as the account that will run the tasks):
    `Read-Host "SMTP password" -AsSecureString | ConvertFrom-SecureString | Set-Content C:\overtime\scripts\meridian\smtp.cred`
-3. `.\Get-CenterList.ps1` and paste the centers into `config.psd1` -> `Centers` (so zero-punch centers appear).
+3. All centers seen in the last `DiscoverMonths` (3) months are reported automatically, zero-punch ones as `- 0`. To hide some, list them in `config.psd1` -> `ExcludeCenters` (`.\Get-CenterList.ps1` shows the names).
 4. Test without sending: `.\Send-DailyClockIn.ps1 -DryRun`, then without `-DryRun`.
    `.\Send-MonthEndNoClockIn.ps1 -Year 2026 -Month 9 -DryRun`, `.\Send-MonthlyOTClaim.ps1 -RunDate 2026-10-01 -DryRun`
 5. Elevated PowerShell: `.\Register-MeridianTasks.ps1 -RunAsUser DOMAIN\svc_account`

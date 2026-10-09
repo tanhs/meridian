@@ -17,7 +17,7 @@ try {
     }
 
     $lines = @(); $i = 0
-    foreach ($name in (Resolve-CenterNames $recs)) {
+    foreach ($name in (Resolve-CenterNames $recs -Year $Date.Year -Month $Date.Month)) {
         $key = $name.ToUpperInvariant()
         $n = if ($counts.ContainsKey($key)) { $counts[$key] } else { 0 }
         $lines += '{0}. {1} - {2}' -f (Get-ListLetter $i), $name, $n
@@ -27,7 +27,6 @@ try {
     $body = "Datetime run: $((Get-Date).ToString('d/M/yyyy HH:mm'))`r`nDaily clock-in summary for $($Date.ToString('d/M/yyyy'))`r`n`r`n" + ($lines -join "`r`n")
     $body += "`r`n`r`n(Count = unique staff clocking in/out on the day)"
     if (-not $recs) { $body += "`r`n`r`nWARNING: no clock records at all for this date - the clock/SmartPSS feed may be down." }
-    if (-not @((Get-MeridianConfig).Centers)) { $body += "`r`n`r`nNOTE: Centers list in config.psd1 is empty; only centers with punches are shown." }
 
     Send-MeridianMail -Subject "Daily Clock-In Summary $($Date.ToString('d/M/yyyy'))" -Body $body -DryRun:$DryRun -Job $job
 }

@@ -34,12 +34,14 @@
     OTCutoffHour   = 3
 
     # --- Centers ------------------------------------------------------------
-    # Master list so centers with ZERO punches still appear in the reports.
-    # Must match BranchCode (tbl_DailyTransLog) / DeviceName minus "_TMS" (SmartPSS).
-    # Generate the list with .\Get-CenterList.ps1, then paste here. Matching is case-insensitive.
-    Centers        = @(
-        # 'Bahau'
-        # 'Bangsar'
-        # 'Chongli'
+    # By default ALL centers are reported: every BranchCode / DeviceName (minus "_TMS") seen in the clock data
+    # of the last DiscoverMonths months, so a center with 0 punches today still shows as "- 0".
+    DiscoverMonths = 3                 # 0 = only centers that have punches in the report period
+
+    # Centers listed here are HIDDEN from the daily and month-end reports (the OT claim CSV is never filtered).
+    # Must match the name exactly as reported; case-insensitive. Empty list = hide nothing.
+    ExcludeCenters = @(
+        # 'HQ'
+        # 'TMS_Kuala Lumpur'
     )
 }
