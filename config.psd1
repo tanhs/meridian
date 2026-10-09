@@ -24,7 +24,9 @@
 
     # --- UniFi socket-leak watchdog (Watch-UniFiPorts.ps1) -------------------
     UniFiPortThreshold = 10000          # kill UniFi when it holds more TCP sockets than this
-    UniFiCommandMatch  = 'ace.jar'      # only java/javaw processes whose command line contains this
+    # Only java/javaw processes whose command line contains this (substring, quote included).
+    # 'ace.jar" ui' = the desktop UI window only; the headless controller ('ace.jar" start') is never touched.
+    UniFiCommandMatch  = 'ace.jar" ui'
 
     # --- OT claim extract ---------------------------------------------------
     # Window = 1st of previous month @ this hour  ->  1st of this month @ this hour.
