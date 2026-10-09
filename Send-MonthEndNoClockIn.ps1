@@ -20,11 +20,11 @@ try {
     $dataDays = @($recs | ForEach-Object { $_.Date } | Select-Object -Unique).Count
 
     $lines = @(); $i = 0
-    foreach ($name in (Resolve-CenterNames $recs -Year $Year -Month $Month)) {
+    foreach ($c in (Resolve-CenterNames $recs -Year $Year -Month $Month)) {
         $zero = for ($d = $first; $d -le $last; $d = $d.AddDays(1)) {
-            if (-not $active.ContainsKey("$($name.ToUpperInvariant())|$($d.ToString('yyyyMMdd'))")) { '{0}/{1}' -f $d.Day, $d.Month }
+            if (-not $active.ContainsKey("$($c.Name.ToUpperInvariant())|$($d.ToString('yyyyMMdd'))")) { '{0}/{1}' -f $d.Day, $d.Month }
         }
-        $lines += '{0}. {1} - {2}' -f (Get-ListLetter $i), $name, $(if ($zero) { @($zero) -join ', ' } else { 'none' })
+        $lines += '{0}. {1} - {2}' -f (Get-ListLetter $i), (Format-CenterLabel $c), $(if ($zero) { @($zero) -join ', ' } else { 'none' })
         $i++
     }
 

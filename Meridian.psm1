@@ -106,6 +106,7 @@ function ConvertTo-ClockRecord {
         [pscustomobject]@{
             Center   = $center
             StaffNo  = $staff
+            Desc     = ([string]$r['tdesc']).Trim()
             Date     = $d.Date
             Time     = $ts
             DateTime = $d.Date + $ts
@@ -121,30 +122,46 @@ function Get-ClockRecord {
 
 function Resolve-CenterNames {
     <#
-    All centers to report: those in -Records, plus any seen in the previous DiscoverMonths months (ending at
-    -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Case-insensitive; returns sorted
-    display names. A month that cannot be read (e.g. database missing) is skipped with a warning.
+    All centers to report, as objects {Name; Desc}. Centers come from -Records plus the previous DiscoverMonths
+    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Desc = distinct
+    tdesc / DeviceName values seen for that center (omitted when identical to the name). Case-insensitive.
+    A month that cannot be read (e.g. database missing) is skipped with a warning.
     #>
     param($Records, [int]$Year, [int]$Month)
     $cfg = Get-MeridianConfig
-    $map = @{}
-    $add = { param($name) $n = ([string]$name).Trim(); if ($n) { $k = $n.ToUpperInvariant(); if (-not $map.ContainsKey($k)) { $map[$k] = $n } } }
+    $names = @{}    # KEY -> display name
+    $descs = @{}    # KEY -> hashtable of distinct descriptions (key upper -> text)
+    $add = {
+        param($r)
+        $n = ([string]$r.Center).Trim(); if (-not $n) { return }
+        $k = $n.ToUpperInvariant()
+        if (-not $names.ContainsKey($k)) { $names[$k] = $n; $descs[$k] = @{} }
+        $d = ([string]$r.Desc).Trim()
+        if ($d -and $d.ToUpperInvariant() -ne $k) { $descs[$k][$d.ToUpperInvariant()] = $d }
+    }
 
-    foreach ($r in @($Records)) { & $add $r.Center }
+    foreach ($r in @($Records)) { & $add $r }
 
     $months = [int]$cfg.DiscoverMonths
     if ($months -gt 0 -and $Year -and $Month) {
         $base = Get-Date -Year $Year -Month $Month -Day 1
         for ($i = 0; $i -lt $months; $i++) {
             $d = $base.AddMonths(-$i)
-            try { foreach ($r in (Get-ClockRecord -Year $d.Year -Month $d.Month)) { & $add $r.Center } }
+            try { foreach ($r in (Get-ClockRecord -Year $d.Year -Month $d.Month)) { & $add $r } }
             catch { Write-MeridianLog "Center discovery skipped $($d.ToString('yyyy-MM')): $($_.Exception.Message)" 'meridian' 'WARN' }
         }
     }
 
     $exclude = @{}
     foreach ($e in @($cfg.ExcludeCenters)) { if ($e) { $exclude[([string]$e).Trim().ToUpperInvariant()] = $true } }
-    $map.GetEnumerator() | Where-Object { -not $exclude.ContainsKey($_.Key) } | ForEach-Object { $_.Value } | Sort-Object
+    $names.Keys | Where-Object { -not $exclude.ContainsKey($_) } | Sort-Object | ForEach-Object {
+        [pscustomobject]@{ Name = $names[$_]; Desc = (@($descs[$_].Values | Sort-Object) -join '; ') }
+    }
+}
+
+function Format-CenterLabel {
+    param([Parameter(Mandatory)]$Center)   # object from Resolve-CenterNames
+    if ($Center.Desc) { '{0} ({1})' -f $Center.Name, $Center.Desc } else { $Center.Name }
 }
 
 function Get-ListLetter {

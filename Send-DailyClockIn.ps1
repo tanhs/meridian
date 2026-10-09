@@ -17,10 +17,10 @@ try {
     }
 
     $lines = @(); $i = 0
-    foreach ($name in (Resolve-CenterNames $recs -Year $Date.Year -Month $Date.Month)) {
-        $key = $name.ToUpperInvariant()
+    foreach ($c in (Resolve-CenterNames $recs -Year $Date.Year -Month $Date.Month)) {
+        $key = $c.Name.ToUpperInvariant()
         $n = if ($counts.ContainsKey($key)) { $counts[$key] } else { 0 }
-        $lines += '{0}. {1} - {2}' -f (Get-ListLetter $i), $name, $n
+        $lines += '{0}. {1} - {2}' -f (Get-ListLetter $i), (Format-CenterLabel $c), $n
         $i++
     }
 
