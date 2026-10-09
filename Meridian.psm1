@@ -188,8 +188,11 @@ function Send-MeridianMail {
             $msg.From = $cfg.MailFrom
             foreach ($to in $cfg.MailTo) { $msg.To.Add($to) }
             $msg.Subject = $Subject
-            $msg.Body = $Body
-            $msg.IsBodyHtml = $false
+            # Outlook strips single line breaks from plain-text mail ("We removed extra line breaks"), which
+            # flattens the center list. Send HTML with explicit <br> instead; the text is HTML-encoded first.
+            $msg.Body = '<div style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:11pt">' +
+                ([System.Net.WebUtility]::HtmlEncode($Body) -replace "`r?`n", '<br>') + '</div>'
+            $msg.IsBodyHtml = $true
             foreach ($a in $Attachments) { $msg.Attachments.Add((New-Object System.Net.Mail.Attachment $a)) }
             $smtp.EnableSsl = $true
             $smtp.Timeout = 60000
