@@ -201,6 +201,7 @@ function Resolve-CenterNames {
         $desc = if ($pinned.ContainsKey($_)) { $pinned[$_] }
                 elseif ($fromCtrl.ContainsKey($_)) { @($fromCtrl[$_].Values | Sort-Object) -join '; ' }
                 else { @($descs[$_].Values | Sort-Object) -join '; ' }
+        if ($desc -and $desc.Trim().ToUpperInvariant() -eq $_) { $desc = '' }   # "HQ (HQ)" -> "HQ"
         [pscustomobject]@{ Name = $names[$_]; Desc = $desc }
     }
 }
