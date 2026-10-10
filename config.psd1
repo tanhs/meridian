@@ -50,12 +50,13 @@
         # 'TMS_Kuala Lumpur'
     )
 
-    # Count a center only for punches at ITS OWN doors (controllers in tbl_controller whose TCode is the center name, e.g.
-    # 'NUSG BG' -> Davita Bangsar + Out). BranchCode is the staff's home branch, so without this a center looks active
-    # whenever its staff punch at other centers. Applies to the daily and month-end reports only, never the OT CSV.
-    OwnDoorsOnly = $true
+    # Count each punch for the center that owns the DOOR (controller) it was made at, not the staff member's home
+    # BranchCode: a punch at 'DSS RWG' or 'DSS RWG Out' counts for DSS RWG, whoever made it. Door -> center comes from
+    # tbl_controller (TCode minus Out/In and a door number). Doors unknown to tbl_controller (SmartPSS / TMS_) keep their
+    # BranchCode. Daily and month-end reports only, never the OT CSV. $false = old behaviour (count by BranchCode).
+    CountByDoor = $true
 
-    # Optional: list a center's own doors explicitly (tdesc names; Out/In are ignored). Overrides tbl_controller for it.
+    # Optional: assign doors (tdesc names; Out/In ignored) to a center explicitly. Overrides tbl_controller for them.
     CenterDoors = @{
         # 'NUSG BG' = @('Davita Bangsar')
     }

@@ -12,7 +12,7 @@ try {
     $recs = Get-ClockRecord -Year $Date.Year -Month $Date.Month -Day $Date.Day
     $recs = @($recs | Where-Object { $_.Date -eq $Date })
     $rawCount = $recs.Count
-    $recs = @(Select-OwnDoorRecord $recs)   # only punches at the center's own doors
+    $recs = @(Convert-ToDoorCenter $recs)   # center = the door's center, not the staff's home branch
 
     $counts = @{}
     foreach ($g in ($recs | Group-Object { $_.Center.ToUpperInvariant() })) {

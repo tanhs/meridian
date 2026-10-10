@@ -29,7 +29,7 @@ try {
     $recs = Get-ClockRecord -Year $Year -Month $Month
     $recs = @($recs | Where-Object { $_.Date -ge $first -and $_.Date -le $last })
     $dataDays = @($recs | ForEach-Object { $_.Date } | Select-Object -Unique).Count   # before the own-door filter
-    $recs = @(Select-OwnDoorRecord $recs)   # only punches at the center's own doors
+    $recs = @(Convert-ToDoorCenter $recs)   # center = the door's center, not the staff's home branch
 
     $active = @{}   # "CENTER|yyyyMMdd" -> $true
     foreach ($r in $recs) { $active["$($r.Center.ToUpperInvariant())|$($r.Date.ToString('yyyyMMdd'))"] = $true }
