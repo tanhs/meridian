@@ -42,6 +42,7 @@
     # Must match the name exactly as reported; case-insensitive. Empty list = hide nothing.
     ExcludeCenters = @(
         'NUSG BN'
+        'DSS KL'
         # 'HQ'
         # 'TMS_Kuala Lumpur'
     )
