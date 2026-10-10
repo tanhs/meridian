@@ -1,7 +1,8 @@
 #requires -Version 5.1
 <# Report 2: per center, days in the month with zero clock-ins.
    Default: previous month (scheduled on the 1st).
-   -MonthToDate: current month, 1st through YESTERDAY, resolved at run time (scheduled daily); nothing is sent on the 1st.
+   -MonthToDate: current month, 1st through YESTERDAY, resolved at run time (scheduled daily). On the 1st it sends the
+                 complete previous month instead, so this single daily task replaces the monthly one.
    -Year/-Month: any specific month (the current month is capped at today). #>
 param([int]$Year, [int]$Month, [switch]$MonthToDate, [switch]$DryRun)
 
@@ -10,8 +11,13 @@ $job = 'monthend'
 Invoke-UniFiGuard -DryRun:$DryRun   # free ports first; never throws
 try {
     if ($MonthToDate) {
-        if ((Get-Date).Day -eq 1) { Write-MeridianLog 'Month-to-date: nothing to report on the 1st' $job; return }
-        $Year = (Get-Date).Year; $Month = (Get-Date).Month
+        if ((Get-Date).Day -eq 1) {
+            # On the 1st there is no month-to-date yet: send the COMPLETE previous month instead (a "month-end" report),
+            # so this one task replaces the separate MonthEndNoClock task.
+            $prev = (Get-Date).Date.AddMonths(-1); $Year = $prev.Year; $Month = $prev.Month
+            $MonthToDate = $false
+        }
+        else { $Year = (Get-Date).Year; $Month = (Get-Date).Month }
     }
     $through = if ($MonthToDate) { (Get-Date).Date.AddDays(-1) } else { (Get-Date).Date }
     if (-not $Year -or -not $Month) { $prev = (Get-Date).Date.AddDays(1 - (Get-Date).Day).AddMonths(-1); $Year = $prev.Year; $Month = $prev.Month }
