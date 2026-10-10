@@ -37,7 +37,7 @@ try {
     $lines = @(); $rows = @(); $i = 0
     foreach ($c in (Resolve-CenterNames $recs -Year $Year -Month $Month)) {
         $zero = for ($d = $first; $d -le $last; $d = $d.AddDays(1)) {
-            if (-not $active.ContainsKey("$($c.Name.ToUpperInvariant())|$($d.ToString('yyyyMMdd'))")) { '{0}/{1}' -f $d.Day, $d.Month }
+            if (-not $active.ContainsKey("$($c.Name.ToUpperInvariant())|$($d.ToString('yyyyMMdd'))")) { '{0}/{1}({2})' -f $d.Day, $d.Month, $d.ToString('ddd', [Globalization.CultureInfo]::InvariantCulture) }
         }
         $days = if ($zero) { @($zero) -join ', ' } else { 'none' }
         $letter = Get-ListLetter $i
