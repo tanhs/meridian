@@ -107,6 +107,61 @@ function Get-ControllerRow {
     finally { $conn.Dispose() }
 }
 
+function Get-OwnDoorMap {
+    <#
+    Center -> set of its own doors (normalised tdesc, "Out"/"In" removed). From tbl_controller: a reader belongs to the
+    center named by its TCode once a trailing " Out"/" In" and then a door number are removed. config CenterDoors
+    overrides a center explicitly.
+    #>
+    $cfg = Get-MeridianConfig
+    $map = @{}
+    $norm = { param($t) (([string]$t) -replace '\s+(Out|In)$', '' -replace '\s+', ' ').Trim().ToUpperInvariant() }
+    $addDoor = {
+        param($center, $door)
+        $k = ([string]$center).Trim().ToUpperInvariant(); $d = & $norm $door
+        if (-not $k -or -not $d) { return }
+        if (-not $map.ContainsKey($k)) { $map[$k] = @{} }
+        $map[$k][$d] = $true
+    }
+    foreach ($row in (Get-ControllerRow)) {
+        $t1 = ($row.TCode -replace '\s+(Out|In)$', '').Trim()
+        $t2 = ($t1 -replace '\s+\d+$', '').Trim()
+        & $addDoor $t1 $row.TDesc
+        if ($t2 -ne $t1) { & $addDoor $t2 $row.TDesc }
+    }
+    if ($cfg.CenterDoors) {
+        foreach ($kv in $cfg.CenterDoors.GetEnumerator()) {
+            $k = ([string]$kv.Key).Trim().ToUpperInvariant()
+            $map[$k] = @{}
+            foreach ($d in @($kv.Value)) { $map[$k][(& $norm $d)] = $true }
+        }
+    }
+    $map
+}
+
+function Select-OwnDoorRecord {
+    <#
+    Keeps a punch for center C only when it happened at one of C's own doors. BranchCode is the staff member's home
+    branch, so staff who punch at other centers' doors would otherwise make their home center look active.
+    Centers with no controller rows (e.g. SmartPSS) are left untouched. Off when OwnDoorsOnly is not true.
+    #>
+    param($Records)
+    $cfg = Get-MeridianConfig
+    $all = @($Records)
+    if (-not $cfg.OwnDoorsOnly) { return $all }
+    try { $map = Get-OwnDoorMap }
+    catch { Write-MeridianLog "Own-door filter skipped (tbl_controller not read): $($_.Exception.Message)" 'meridian' 'WARN'; return $all }
+    $kept = foreach ($r in $all) {
+        $k = $r.Center.ToUpperInvariant()
+        if (-not $map.ContainsKey($k)) { $r; continue }
+        $d = (([string]$r.Desc) -replace '\s+(Out|In)$', '' -replace '\s+', ' ').Trim().ToUpperInvariant()
+        if ($map[$k].ContainsKey($d)) { $r }
+    }
+    $kept = @($kept)
+    Write-MeridianLog "Own-door filter: kept $($kept.Count) of $($all.Count) punches" 'meridian'
+    $kept
+}
+
 function ConvertTo-ClockRecord {
     <#
     Normalises proc rows. The two UNION branches return TransDateDDMMYYYY in DIFFERENT formats

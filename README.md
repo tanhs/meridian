@@ -9,6 +9,7 @@ All reports reuse `dbo.usp_StaffMonthlyOTClaim` (source in `stored_procedure.txt
 | `Send-MonthEndNoClockIn.ps1` | Per center, days of the previous month with 0 clock-ins | 1st, 03:30 |
 | `Send-MonthEndNoClockIn.ps1 -MonthToDate` | Same report for the current month, 1st through yesterday; on the 1st it sends the full previous month (replaces the monthly task) | daily 07:00 |
 | `Send-MonthlyOTClaim.ps1` | OT extract as CSV, 1st prev month 03:00 -> 1st this month 03:00 | 1st, 03:00 |
+| `Check-Center.ps1` | Read-only quick check of a center per day: staff, punches, doors (own doors marked `*`) | manual |
 | `Watch-UniFiPorts.ps1` | Kills the UniFi desktop UI process (`ace.jar" ui`, not the headless controller) if it holds >10,000 TCP sockets (socket leak starves SMTP/SQL), emails a notice, does not restart it | hourly at :05 |
 
 The UniFi check also runs at the start of each report script, before any SQL or email work.

@@ -50,6 +50,16 @@
         # 'TMS_Kuala Lumpur'
     )
 
+    # Count a center only for punches at ITS OWN doors (controllers in tbl_controller whose TCode is the center name, e.g.
+    # 'NUSG BG' -> Davita Bangsar + Out). BranchCode is the staff's home branch, so without this a center looks active
+    # whenever its staff punch at other centers. Applies to the daily and month-end reports only, never the OT CSV.
+    OwnDoorsOnly = $true
+
+    # Optional: list a center's own doors explicitly (tdesc names; Out/In are ignored). Overrides tbl_controller for it.
+    CenterDoors = @{
+        # 'NUSG BG' = @('Davita Bangsar')
+    }
+
     # Descriptions come from xpndb.dbo.tbl_controller (the doors that belong to each center, e.g. TCode 'DVA JB',
     # 'DVA JB 2', 'DVA JB Out'). Centers with no controller rows (e.g. SmartPSS) use the devices that were punched.
     UseControllerTable = $true

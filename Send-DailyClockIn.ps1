@@ -11,6 +11,8 @@ try {
     Write-MeridianLog "Daily clock-in for $($Date.ToString('yyyy-MM-dd'))" $job
     $recs = Get-ClockRecord -Year $Date.Year -Month $Date.Month -Day $Date.Day
     $recs = @($recs | Where-Object { $_.Date -eq $Date })
+    $rawCount = $recs.Count
+    $recs = @(Select-OwnDoorRecord $recs)   # only punches at the center's own doors
 
     $counts = @{}
     foreach ($g in ($recs | Group-Object { $_.Center.ToUpperInvariant() })) {
@@ -34,7 +36,7 @@ try {
     $body = "Datetime run: $((Get-Date).ToString('d/M/yyyy HH:mm'))`r`nDaily clock-in summary for $($Date.ToString('d/M/yyyy'))`r`n`r`n$summary"
     if ($lines) { $body += "`r`n`r`n" + ($lines -join "`r`n") }
     if ($ShowAll) { $body += "`r`n`r`n(Count = unique staff clocking in/out on the day)" }
-    if (-not $recs) { $body += "`r`n`r`nWARNING: no clock records at all for this date - the clock/SmartPSS feed may be down." }
+    if (-not $rawCount) { $body += "`r`n`r`nWARNING: no clock records at all for this date - the clock/SmartPSS feed may be down." }
 
     Send-MeridianMail -Subject "Daily Clock-In Summary $($Date.ToString('d/M/yyyy'))" -Body $body -DryRun:$DryRun -Job $job
 }
