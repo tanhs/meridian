@@ -45,6 +45,10 @@
         # 'TMS_Kuala Lumpur'
     )
 
+    # Descriptions come from xpndb.dbo.tbl_controller (the doors that belong to each center, e.g. TCode 'DVA JB',
+    # 'DVA JB 2', 'DVA JB Out'). Centers with no controller rows (e.g. SmartPSS) use the devices that were punched.
+    UseControllerTable = $true
+
     # Pin a center to ONE description in the emails instead of every door its staff have punched at.
     # Key = center name as reported (case-insensitive); value = text shown in brackets. '' = show the name only.
     # Centers not listed here keep the automatic list of devices.

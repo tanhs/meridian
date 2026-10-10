@@ -51,9 +51,8 @@ function Get-PlainSecret {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 
-function Invoke-ClockProc {
-    <# Runs dbo.usp_StaffMonthlyOTClaim and returns raw DataTable. -Day is optional. #>
-    param([Parameter(Mandatory)][int]$Year, [Parameter(Mandatory)][int]$Month, [Nullable[int]]$Day = $null)
+function New-MeridianSqlConnection {
+    <# Opens a SQL connection (TCP only, 60s timeout, 3 attempts). Caller disposes it. #>
     $cfg = Get-MeridianConfig
     # "tcp:" skips the named-pipes fallback, which only hides the real TCP error behind "error: 40".
     $server = $cfg.SqlServer
@@ -63,15 +62,23 @@ function Invoke-ClockProc {
     else { $cs += 'Integrated Security=SSPI;' }
 
     $conn = New-Object System.Data.SqlClient.SqlConnection $cs
-    try {
-        for ($attempt = 1; ; $attempt++) {
-            try { $conn.Open(); break }
-            catch {
-                if ($attempt -ge 3) { throw }
-                Write-MeridianLog "SQL connect attempt $attempt failed ($($_.Exception.Message)); retrying in 20s" 'sql' 'WARN'
-                Start-Sleep -Seconds 20
-            }
+    for ($attempt = 1; ; $attempt++) {
+        try { $conn.Open(); break }
+        catch {
+            if ($attempt -ge 3) { $conn.Dispose(); throw }
+            Write-MeridianLog "SQL connect attempt $attempt failed ($($_.Exception.Message)); retrying in 20s" 'sql' 'WARN'
+            Start-Sleep -Seconds 20
         }
+    }
+    $conn
+}
+
+function Invoke-ClockProc {
+    <# Runs dbo.usp_StaffMonthlyOTClaim and returns raw DataTable. -Day is optional. #>
+    param([Parameter(Mandatory)][int]$Year, [Parameter(Mandatory)][int]$Month, [Nullable[int]]$Day = $null)
+    $cfg = Get-MeridianConfig
+    $conn = New-MeridianSqlConnection
+    try {
         $cmd = $conn.CreateCommand()
         $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
         $cmd.CommandText = 'dbo.usp_StaffMonthlyOTClaim'
@@ -82,6 +89,20 @@ function Invoke-ClockProc {
         $table = New-Object System.Data.DataTable
         [void](New-Object System.Data.SqlClient.SqlDataAdapter $cmd).Fill($table)
         , $table
+    }
+    finally { $conn.Dispose() }
+}
+
+function Get-ControllerRow {
+    <# TCode / TDesc pairs from xpndb.dbo.tbl_controller (one row per door reader, e.g. "DVA JB 2 Out"). #>
+    $conn = New-MeridianSqlConnection
+    try {
+        $cmd = $conn.CreateCommand()
+        $cmd.CommandText = 'SELECT TCode, TDesc FROM [xpndb].[dbo].[tbl_controller]'
+        $cmd.CommandTimeout = (Get-MeridianConfig).SqlTimeoutSec
+        $table = New-Object System.Data.DataTable
+        [void](New-Object System.Data.SqlClient.SqlDataAdapter $cmd).Fill($table)
+        foreach ($r in $table.Rows) { [pscustomobject]@{ TCode = ([string]$r['TCode']).Trim(); TDesc = ([string]$r['TDesc']).Trim() } }
     }
     finally { $conn.Dispose() }
 }
@@ -123,8 +144,8 @@ function Get-ClockRecord {
 function Resolve-CenterNames {
     <#
     All centers to report, as objects {Name; Desc}. Centers come from -Records plus the previous DiscoverMonths
-    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Desc = CenterDescriptions override if set, else distinct
-    tdesc / DeviceName values seen for that center (omitted when identical to the name). Case-insensitive.
+    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Desc = CenterDescriptions override if set, else the doors of that center in tbl_controller, else the distinct
+    tdesc / DeviceName values punched by that center (omitted when identical to the name). Case-insensitive.
     A month that cannot be read (e.g. database missing) is skipped with a warning.
     #>
     param($Records, [int]$Year, [int]$Month)
@@ -152,13 +173,34 @@ function Resolve-CenterNames {
         }
     }
 
+    # Descriptions from tbl_controller: a door belongs to the center whose name equals its TCode once a trailing
+    # " Out"/" In" and then a trailing door number are removed ("DVA JB 2 Out" -> "DVA JB 2" -> "DVA JB").
+    # Replaces the doors-people-punched list, which also includes other centers' doors.
+    $fromCtrl = @{}
+    if ($cfg.UseControllerTable) {
+        try {
+            foreach ($row in (Get-ControllerRow)) {
+                $t1 = ($row.TCode -replace '\s+(Out|In)$', '').Trim().ToUpperInvariant()
+                $t2 = ($t1 -replace '\s+\d+$', '').Trim()
+                $k = if ($names.ContainsKey($t1)) { $t1 } elseif ($names.ContainsKey($t2)) { $t2 } else { $null }
+                $d = ($row.TDesc -replace '\s+(Out|In)$', '' -replace '\s+', ' ').Trim()
+                if (-not $k -or -not $d) { continue }
+                if (-not $fromCtrl.ContainsKey($k)) { $fromCtrl[$k] = @{} }
+                $fromCtrl[$k][$d.ToUpperInvariant()] = $d
+            }
+        }
+        catch { Write-MeridianLog "tbl_controller not read, using punched devices instead: $($_.Exception.Message)" 'meridian' 'WARN' }
+    }
+
     $pinned = @{}
     if ($cfg.CenterDescriptions) { foreach ($kv in $cfg.CenterDescriptions.GetEnumerator()) { $pinned[([string]$kv.Key).Trim().ToUpperInvariant()] = ([string]$kv.Value).Trim() } }
     $exclude = @{}
     foreach ($e in @($cfg.ExcludeCenters)) { if ($e) { $exclude[([string]$e).Trim().ToUpperInvariant()] = $true } }
     $names.Keys | Where-Object { -not $exclude.ContainsKey($_) } | Sort-Object | ForEach-Object {
         # CenterDescriptions pins a center to ONE description (an empty string = show the name only).
-        $desc = if ($pinned.ContainsKey($_)) { $pinned[$_] } else { @($descs[$_].Values | Sort-Object) -join '; ' }
+        $desc = if ($pinned.ContainsKey($_)) { $pinned[$_] }
+                elseif ($fromCtrl.ContainsKey($_)) { @($fromCtrl[$_].Values | Sort-Object) -join '; ' }
+                else { @($descs[$_].Values | Sort-Object) -join '; ' }
         [pscustomobject]@{ Name = $names[$_]; Desc = $desc }
     }
 }
