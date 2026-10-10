@@ -1,15 +1,23 @@
 #requires -Version 5.1
-<# Report 2: per center, days in the month with zero clock-ins. Scheduled on the 1st for the previous month. #>
-param([int]$Year, [int]$Month, [switch]$DryRun)
+<# Report 2: per center, days in the month with zero clock-ins.
+   Default: previous month (scheduled on the 1st).
+   -MonthToDate: current month, 1st through YESTERDAY, resolved at run time (scheduled daily); nothing is sent on the 1st.
+   -Year/-Month: any specific month (the current month is capped at today). #>
+param([int]$Year, [int]$Month, [switch]$MonthToDate, [switch]$DryRun)
 
 Import-Module (Join-Path $PSScriptRoot 'Meridian.psm1') -Force
 $job = 'monthend'
 Invoke-UniFiGuard -DryRun:$DryRun   # free ports first; never throws
 try {
+    if ($MonthToDate) {
+        if ((Get-Date).Day -eq 1) { Write-MeridianLog 'Month-to-date: nothing to report on the 1st' $job; return }
+        $Year = (Get-Date).Year; $Month = (Get-Date).Month
+    }
+    $through = if ($MonthToDate) { (Get-Date).Date.AddDays(-1) } else { (Get-Date).Date }
     if (-not $Year -or -not $Month) { $prev = (Get-Date).Date.AddDays(1 - (Get-Date).Day).AddMonths(-1); $Year = $prev.Year; $Month = $prev.Month }
     $first = Get-Date -Year $Year -Month $Month -Day 1 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
     $last = $first.AddMonths(1).AddDays(-1)
-    if ($last -gt (Get-Date).Date) { $last = (Get-Date).Date }   # month still in progress
+    if ($last -gt $through) { $last = $through }   # month still in progress
     Write-MeridianLog "Month-end zero-day check $($first.ToString('yyyy-MM')) ..$($last.Day)" $job
 
     $recs = Get-ClockRecord -Year $Year -Month $Month
@@ -53,7 +61,8 @@ try {
         ($trs -join '') + '</table>' +
         (($notes | ForEach-Object { "<p style='color:#555'>$(& $enc $_)</p>" }) -join '')
 
-    Send-MeridianMail -Subject ("Month-End No Clock-In Report {0:MMM yyyy}" -f $first) -Body $body -BodyHtml $html -DryRun:$DryRun -Job $job
+    $subject = if ($MonthToDate) { "Month-To-Date No Clock-In Report {0:MMM yyyy} (1-{1})" -f $first, $last.Day } else { "Month-End No Clock-In Report {0:MMM yyyy}" -f $first }
+    Send-MeridianMail -Subject $subject -Body $body -BodyHtml $html -DryRun:$DryRun -Job $job
 }
 catch {
     Write-MeridianLog "FAILED: $_" $job 'ERROR'

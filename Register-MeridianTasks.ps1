@@ -15,8 +15,8 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 if ($RunAsUser -notmatch '[\\@]') { $RunAsUser = "$env:COMPUTERNAME\$RunAsUser" }   # e.g. DVKLSRV08\administrator
 Write-Host "Tasks will run as $RunAsUser (must be the account that created smtp.cred)"
 
-function New-Job($name, $script, $schedule) {
-    $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$BaseDir\$script`""
+function New-Job($name, $script, $schedule, $scriptArgs = '') {
+    $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$BaseDir\$script`" $scriptArgs".TrimEnd()
     & schtasks.exe /Create /F /TN "Meridian\$name" /TR $tr @schedule /RU $RunAsUser /RP * /RL HIGHEST
     if ($LASTEXITCODE -ne 0) { throw "Failed to create $name" }
 }
@@ -26,10 +26,11 @@ $jobs = [ordered]@{
     MonthEndNoClock = @('Send-MonthEndNoClockIn.ps1', @('/SC', 'MONTHLY', '/D', '1', '/ST', '03:30'))
     MonthlyOTClaim  = @('Send-MonthlyOTClaim.ps1',    @('/SC', 'MONTHLY', '/D', '1', '/ST', '03:00'))
     UniFiPortWatch  = @('Watch-UniFiPorts.ps1',       @('/SC', 'HOURLY',  '/MO', '1', '/ST', '00:05'))
+    MonthToDateNoClock = @('Send-MonthEndNoClockIn.ps1', @('/SC', 'DAILY', '/ST', '07:00'), '-MonthToDate')
 }
 foreach ($name in $jobs.Keys) {
     if ($Only -and $Only -notcontains $name) { continue }
-    New-Job $name $jobs[$name][0] $jobs[$name][1]
+    New-Job $name $jobs[$name][0] $jobs[$name][1] $jobs[$name][2]
 }
 
 & schtasks.exe /Query /TN 'Meridian\' /FO LIST | Select-String 'TaskName|Next Run'
