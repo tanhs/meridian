@@ -43,6 +43,9 @@
     ExcludeCenters = @(
         'NUSG BN'
         'DSS KL'
+        'DVA RE'
+        'NUSG PU'
+        'QDC SPS'
         # 'HQ'
         # 'TMS_Kuala Lumpur'
     )
