@@ -46,6 +46,7 @@
         'DVA RE'
         'NUSG PU'
         'QDC SPS'
+        'DVA KL'
         # 'HQ'
         # 'TMS_Kuala Lumpur'
     )
