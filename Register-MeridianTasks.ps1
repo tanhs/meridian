@@ -28,6 +28,8 @@ $jobs = [ordered]@{
     UniFiPortWatch  = @('Watch-UniFiPorts.ps1',       @('/SC', 'HOURLY',  '/MO', '1', '/ST', '00:05'))
     MonthToDateNoClock = @('Send-MonthEndNoClockIn.ps1', @('/SC', 'DAILY', '/ST', '07:00'), '-MonthToDate')
 }
+$unknown = @($Only | Where-Object { $_ -and -not $jobs.Contains($_) })
+if ($unknown) { throw "Unknown task name(s): $($unknown -join ', '). Valid: $($jobs.Keys -join ', ')" }
 foreach ($name in $jobs.Keys) {
     if ($Only -and $Only -notcontains $name) { continue }
     New-Job $name $jobs[$name][0] $jobs[$name][1] $jobs[$name][2]
