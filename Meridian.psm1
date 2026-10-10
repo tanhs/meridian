@@ -123,7 +123,7 @@ function Get-ClockRecord {
 function Resolve-CenterNames {
     <#
     All centers to report, as objects {Name; Desc}. Centers come from -Records plus the previous DiscoverMonths
-    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Desc = distinct
+    months (ending at -Year/-Month) so zero-punch centers still appear, minus ExcludeCenters. Desc = CenterDescriptions override if set, else distinct
     tdesc / DeviceName values seen for that center (omitted when identical to the name). Case-insensitive.
     A month that cannot be read (e.g. database missing) is skipped with a warning.
     #>
@@ -152,10 +152,14 @@ function Resolve-CenterNames {
         }
     }
 
+    $pinned = @{}
+    if ($cfg.CenterDescriptions) { foreach ($kv in $cfg.CenterDescriptions.GetEnumerator()) { $pinned[([string]$kv.Key).Trim().ToUpperInvariant()] = ([string]$kv.Value).Trim() } }
     $exclude = @{}
     foreach ($e in @($cfg.ExcludeCenters)) { if ($e) { $exclude[([string]$e).Trim().ToUpperInvariant()] = $true } }
     $names.Keys | Where-Object { -not $exclude.ContainsKey($_) } | Sort-Object | ForEach-Object {
-        [pscustomobject]@{ Name = $names[$_]; Desc = (@($descs[$_].Values | Sort-Object) -join '; ') }
+        # CenterDescriptions pins a center to ONE description (an empty string = show the name only).
+        $desc = if ($pinned.ContainsKey($_)) { $pinned[$_] } else { @($descs[$_].Values | Sort-Object) -join '; ' }
+        [pscustomobject]@{ Name = $names[$_]; Desc = $desc }
     }
 }
 

@@ -44,4 +44,11 @@
         # 'HQ'
         # 'TMS_Kuala Lumpur'
     )
+
+    # Pin a center to ONE description in the emails instead of every door its staff have punched at.
+    # Key = center name as reported (case-insensitive); value = text shown in brackets. '' = show the name only.
+    # Centers not listed here keep the automatic list of devices.
+    CenterDescriptions = @{
+        # 'QDC PE' = 'Davita Pendang'
+    }
 }
