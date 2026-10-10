@@ -26,8 +26,9 @@ try {
         }
         $days = if ($zero) { @($zero) -join ', ' } else { 'none' }
         $letter = Get-ListLetter $i
-        $lines += '{0}. {1} - {2}' -f $letter, (Format-CenterLabel $c), $days
-        $rows += [pscustomobject]@{ Letter = $letter; Name = $c.Name; Desc = $c.Desc; Days = $days }
+        $label = if ($c.PinDesc) { '{0} ({1})' -f $c.Name, $c.PinDesc } else { $c.Name }
+        $lines += '{0}. {1} - {2}' -f $letter, $label, $days
+        $rows += [pscustomobject]@{ Letter = $letter; Name = $c.Name; Desc = $c.PinDesc; Days = $days }
         $i++
     }
 
@@ -39,7 +40,7 @@ try {
     # Plain text (dry run / fallback)
     $body = $head + "`r`n`r`n" + ($lines -join "`r`n") + "`r`n`r`n" + ($notes -join "`r`n`r`n")
 
-    # HTML email: fixed columns so the dates stay readable however many devices a center has
+    # HTML email: fixed columns; the description column shows the CenterDescriptions value from config.psd1
     $enc = { param($t) [System.Net.WebUtility]::HtmlEncode([string]$t) }
     $td = 'padding:4px 14px 4px 0;border-bottom:1px solid #e0e0e0;vertical-align:top;'
     $th = 'padding:4px 14px 4px 0;border-bottom:2px solid #999;text-align:left;'
@@ -48,7 +49,7 @@ try {
         "<td style='${td}min-width:200px'>$(& $enc $r.Days)</td><td style='${td}color:#777;font-size:9pt'>$(& $enc $r.Desc)</td></tr>"
     }
     $html = "<p>$((& $enc $head) -replace '\r?\n', '<br>')</p>" +
-        "<table style='border-collapse:collapse;font-size:10.5pt'><tr><th style='$th'></th><th style='$th'>Center</th><th style='$th'>Days with no clock-in</th><th style='$th'>Devices</th></tr>" +
+        "<table style='border-collapse:collapse;font-size:10.5pt'><tr><th style='$th'></th><th style='$th'>Center</th><th style='$th'>Days with no clock-in</th><th style='$th'>Center Description</th></tr>" +
         ($trs -join '') + '</table>' +
         (($notes | ForEach-Object { "<p style='color:#555'>$(& $enc $_)</p>" }) -join '')
 

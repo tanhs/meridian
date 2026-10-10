@@ -202,7 +202,9 @@ function Resolve-CenterNames {
                 elseif ($fromCtrl.ContainsKey($_)) { @($fromCtrl[$_].Values | Sort-Object) -join '; ' }
                 else { @($descs[$_].Values | Sort-Object) -join '; ' }
         if ($desc -and $desc.Trim().ToUpperInvariant() -eq $_) { $desc = '' }   # "HQ (HQ)" -> "HQ"
-        [pscustomobject]@{ Name = $names[$_]; Desc = $desc }
+        # PinDesc = only the CenterDescriptions value (no automatic fallback); used by the month-end table.
+        $pinDesc = if ($pinned.ContainsKey($_) -and $pinned[$_] -and $pinned[$_].ToUpperInvariant() -ne $_) { $pinned[$_] } else { '' }
+        [pscustomobject]@{ Name = $names[$_]; Desc = $desc; PinDesc = $pinDesc }
     }
 }
 
