@@ -65,3 +65,20 @@ SELECT BranchCode, tdesc, COUNT(*) AS Punches FROM #p
 WHERE  tdesc LIKE 'Davita Bangsar%' OR BranchCode = 'NUSG BG'
 GROUP  BY BranchCode, tdesc;
 DROP TABLE #p;
+
+
+SELECT
+              [PersonID]                                        COLLATE SQL_Latin1_General_CP1_CI_AS    AS TransID
+             ,CONVERT(varchar(10),
+                  DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, '19700101')), 111)      AS TransDateDDMMYYYY
+             ,CONVERT(varchar(8),
+                  DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, '19700101')), 108)      AS TransTime
+             ,LTRIM(RTRIM(REPLACE([DeviceName], '_TMS', ''))) COLLATE SQL_Latin1_General_CP1_CI_AS  AS BranchCode
+             ,[DeviceName]                                        COLLATE SQL_Latin1_General_CP1_CI_AS  AS tdesc
+             ,[PersonName]                                        COLLATE SQL_Latin1_General_CP1_CI_AS  AS StaffName
+             ,[PersonID]                                          COLLATE SQL_Latin1_General_CP1_CI_AS  AS StaffNo
+        FROM [SmartPSS].[dbo].[AttendanceRecordInfo]
+        WHERE
+            MONTH(DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, '19700101'))) = '10'
+            AND YEAR(DATEADD(HOUR, 8, DATEADD(SECOND, [AttendanceDateTime]/1000, '19700101')))  = '2026'
+			and devicename = 'TMS_Pontian'
